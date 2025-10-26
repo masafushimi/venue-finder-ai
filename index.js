@@ -8,14 +8,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const port = process.env.PORT || 3000;
 
 // ミドルウェア
 app.use(cors());
 app.use(express.json());
-
-// 静的ファイルの配信
-app.use(express.static(path.join(__dirname, 'public')));
 
 // OpenAI クライアント
 const client = new OpenAI({
@@ -183,5 +179,4 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Vercel serverless function export
 export default app;
