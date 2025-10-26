@@ -150,7 +150,12 @@ app.post('/api/chat', async (req, res) => {
     });
   } catch (error) {
     console.error('Error:', error);
-    res.status(500).json({ error: 'チャット処理中にエラーが発生しました' });
+    console.error('Error details:', error.message);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ 
+      error: 'チャット処理中にエラーが発生しました',
+      details: error.message 
+    });
   }
 });
 
