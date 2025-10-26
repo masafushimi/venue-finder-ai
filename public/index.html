@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Venue Finder AI</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            width: 90%;
+            max-width: 800px;
+            height: 80vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            opacity: 0.9;
+        }
+        
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #f8f9fa;
+        }
+        
+        .message {
+            margin-bottom: 15px;
+            padding: 15px;
+            border-radius: 15px;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+        
+        .user-message {
+            background: #667eea;
+            color: white;
+            margin-left: auto;
+            text-align: right;
+        }
+        
+        .assistant-message {
+            background: white;
+            border: 1px solid #e9ecef;
+            margin-right: auto;
+        }
+        
+        .recommendation {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        
+        .input-container {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e9ecef;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .input-field {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 25px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        
+        .input-field:focus {
+            border-color: #667eea;
+        }
+        
+        .send-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            padding: 15px 25px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .send-button:hover {
+            transform: translateY(-2px);
+        }
+        
+        .send-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏢 Venue Finder AI</h1>
+            <p>AIが最適な会議室・コワーキングスペースを提案します</p>
+        </div>
+        
+        <div class="chat-container">
+            <div class="messages" id="messages">
+                <div class="message assistant-message">
+                    <strong>AI アシスタント:</strong><br>
+                    こんにちは！会議室やコワーキングスペースをお探しですか？<br>
+                    以下の情報を教えてください：<br>
+                    • 利用人数<br>
+                    • 希望エリア<br>
+                    • 予算<br>
+                    • 必要な設備<br>
+                    <br>
+                    お気軽にご相談ください！
+                </div>
+            </div>
+            
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                AIが回答を生成中...
+            </div>
+            
+            <div class="input-container">
+                <input type="text" id="messageInput" class="input-field" placeholder="メッセージを入力してください..." maxlength="500">
+                <button id="sendButton" class="send-button">送信</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const messagesContainer = document.getElementById('messages');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+        const loading = document.getElementById('loading');
+        
+        let conversationHistory = [];
+        
+        function addMessage(content, isUser = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user-message' : 'assistant-message'}`;
+            
+            if (isUser) {
+                messageDiv.innerHTML = `<strong>あなた:</strong><br>${content}`;
+            } else {
+                messageDiv.innerHTML = `<strong>AI アシスタント:</strong><br>${content}`;
+            }
+            
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+        
+        function addRecommendations(recommendations) {
+            if (!recommendations || recommendations.length === 0) return;
+            
+            const recDiv = document.createElement('div');
+            recDiv.className = 'message assistant-message';
+            
+            let recHtml = '<strong>📋 おすすめ施設:</strong><br><br>';
+            recommendations.forEach(rec => {
+                recHtml += `<div class="recommendation">
+                    <strong>${rec.name}</strong><br>
+                    ${rec.reason}
+                </div>`;
+            });
+            
+            recDiv.innerHTML = recHtml;
+            messagesContainer.appendChild(recDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+        
+        async function sendMessage() {
+            const message = messageInput.value.trim();
+            if (!message) return;
+            
+            // UI更新
+            addMessage(message, true);
+            messageInput.value = '';
+            sendButton.disabled = true;
+            loading.style.display = 'block';
+            
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        conversationHistory: conversationHistory
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                // 会話履歴を更新
+                conversationHistory = data.conversationHistory || [];
+                
+                // AIの回答を表示
+                addMessage(data.message);
+                
+                // レコメンド結果を表示
+                if (data.recommendations && data.recommendations.length > 0) {
+                    addRecommendations(data.recommendations);
+                }
+                
+            } catch (error) {
+                console.error('Error:', error);
+                addMessage('申し訳ございません。エラーが発生しました。しばらく時間をおいてから再度お試しください。');
+            } finally {
+                sendButton.disabled = false;
+                loading.style.display = 'none';
+            }
+        }
+        
+        // イベントリスナー
+        sendButton.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+        
+        // 初期フォーカス
+        messageInput.focus();
+    </script>
+</body>
+</html>
